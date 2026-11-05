@@ -32,3 +32,28 @@ await writeFile(new URL('version.json', out), JSON.stringify({
   baselineCommit: 'd80b5081ffca50755366d7ad6436310c9f12e5bc',
   baseline,
 }, null, 2) + '\n');
+
+const engineFiles = ['adapter.js', 'bootstrap.mjs', 'session.mjs'];
+const [adapter, bootstrap, session] = await Promise.all(engineFiles.map(file =>
+  readFile(new URL(`engine/${file}`, root), 'utf8')));
+const buildId = createHash('sha1').update(JSON.stringify([baseline, adapter, bootstrap, session])).digest('hex');
+await writeFile(new URL('build-id.mjs', out), `export const buildId = '${buildId}';\n`);
+await writeFile(new URL('session.mjs', out), session);
+await writeFile(new URL('bootstrap.mjs', out), bootstrap);
+const variants = pages.map(([device, bytes]) => {
+  const html = bytes.toString('utf8')
+    .replace(/function speak\(t\).*\nfunction stopPronunciation\(\).*\n/, '')
+    .replace('setTimeout(function(){speak(t)},130)', 'clearTimeout(speechTimer);speechTimer=setTimeout(function(){speak(t)},130)')
+    .replace('E("target").innerHTML="FIND: <b>"+current.prompt.toUpperCase()+"</b>"', 'E("target").textContent="FIND: "+current.prompt.toUpperCase()')
+    .replace('if(running)raf=requestAnimationFrame(loop)}', 'if(running)raf=requestAnimationFrame(loop);else emitState()}')
+    .replace('if(k==="p"&&!e.repeat)pause();', 'if(k==="p"&&!e.repeat)setPaused(!paused);')
+    .replace('current=queue.shift();hud()}', 'current=queue.shift();hud();emitState()}')
+    .replace(/window.addEventListener\("message"[\s\S]*?<\/script>/, `${adapter}\n})();</script><script type="module" src="./bootstrap.mjs"></script>`);
+  return [device, html];
+});
+for (const [device, html] of variants) await writeFile(new URL(`engine-${device}.html`, out), html);
+await writeFile(new URL('racer.html', out), '<!doctype html><meta charset="utf-8"><script src="./device.js"></script>');
+await writeFile(new URL('device.js', out), `location.replace(matchMedia('(pointer: coarse) and (max-width: 760px) and (orientation: portrait)').matches ? './engine-mobile.html' : './engine-desktop.html');`);
+const headers = new URL('_headers', out);
+await writeFile(headers, (await readFile(headers, 'utf8')).replace("frame-ancestors 'self'", "frame-ancestors 'self' https://bt-vocabulary-platform-staging.pages.dev https://*.bt-vocabulary-platform-staging.pages.dev"));
+console.log(buildId);
