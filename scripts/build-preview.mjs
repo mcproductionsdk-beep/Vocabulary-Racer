@@ -33,15 +33,16 @@ await writeFile(new URL('version.json', out), JSON.stringify({
   baseline,
 }, null, 2) + '\n');
 
-const engineFiles = ['adapter.js', 'bootstrap.mjs', 'session.mjs'];
-const [adapter, bootstrap, session] = await Promise.all(engineFiles.map(file =>
+const engineFiles = ['adapter.js', 'bootstrap.mjs', 'session.mjs', 'layout.css'];
+const [adapter, bootstrap, session, layout] = await Promise.all(engineFiles.map(file =>
   readFile(new URL(`engine/${file}`, root), 'utf8')));
-const buildId = createHash('sha1').update(JSON.stringify([baseline, adapter, bootstrap, session])).digest('hex');
-await writeFile(new URL('build-id.mjs', out), `export const buildId = '${buildId}';\n`);
-await writeFile(new URL('session.mjs', out), session);
-await writeFile(new URL('bootstrap.mjs', out), bootstrap);
 const variants = pages.map(([device, bytes]) => {
   const html = bytes.toString('utf8')
+    .replace('Word Racer — stripped engine test', 'Vocabulary Racer')
+    .replace('<div class="logo">WORD RACER</div>', '')
+    .replace('</head>', '<style>'+layout+'</style></head>')
+    .replace('W=Math.max(320,r.width);H=Math.max(350,r.height)', 'W=Math.max(1,wrap.clientWidth);H=Math.max(1,wrap.clientHeight)')
+    .replace('W=Math.max(1,r.width);H=Math.max(1,r.height)', 'W=Math.max(1,wrap.clientWidth);H=Math.max(1,wrap.clientHeight)')
     .replace(/function speak\(t\).*\nfunction stopPronunciation\(\).*\n/, '')
     .replace('setTimeout(function(){speak(t)},130)', 'clearTimeout(speechTimer);speechTimer=setTimeout(function(){speak(t)},130)')
     .replace('E("target").innerHTML="FIND: <b>"+current.prompt.toUpperCase()+"</b>"', 'E("target").textContent="FIND: "+current.prompt.toUpperCase()')
@@ -51,6 +52,10 @@ const variants = pages.map(([device, bytes]) => {
     .replace(/window.addEventListener\("message"[\s\S]*?<\/script>/, `${adapter}\n})();</script><script type="module" src="./bootstrap.mjs"></script>`);
   return [device, html];
 });
+const buildId = createHash('sha1').update(JSON.stringify([variants, bootstrap, session])).digest('hex');
+await writeFile(new URL('build-id.mjs', out), `export const buildId = '${buildId}';\n`);
+await writeFile(new URL('session.mjs', out), session);
+await writeFile(new URL('bootstrap.mjs', out), bootstrap);
 for (const [device, html] of variants) await writeFile(new URL(`engine-${device}.html`, out), html);
 await writeFile(new URL('racer.html', out), '<!doctype html><meta charset="utf-8"><script src="./device.js"></script>');
 await writeFile(new URL('device.js', out), `location.replace(matchMedia('(pointer: coarse) and (max-width: 760px) and (orientation: portrait)').matches ? './engine-mobile.html' : './engine-desktop.html');`);
