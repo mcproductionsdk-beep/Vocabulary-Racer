@@ -36,8 +36,15 @@ await writeFile(new URL('version.json', out), JSON.stringify({
 const engineFiles = ['adapter.js', 'bootstrap.mjs', 'session.mjs', 'layout.css'];
 const [adapter, bootstrap, session, layout] = await Promise.all(engineFiles.map(file =>
   readFile(new URL(`engine/${file}`, root), 'utf8')));
+// Reuse the desktop pixel art within the original mobile sprite footprint.
+const carSprite = /function car\(x,y,w,h,style,playerCar\)\{[\s\S]*?\n(?=function draw\()/;
+const desktopSprite = pages.find(([device]) => device === 'desktop')[1].toString('utf8').match(carSprite)?.[0];
+if (!desktopSprite) throw new Error('Missing desktop car sprite');
+const mobileSprite = desktopSprite.replace('Math.min(w*W*.94,hh*.82)', 'w*W*(.47/.49)');
 const variants = pages.map(([device, bytes]) => {
-  const html = bytes.toString('utf8')
+  const source = bytes.toString('utf8');
+  if (device === 'mobile' && !carSprite.test(source)) throw new Error('Missing mobile car sprite');
+  const html = (device === 'mobile' ? source.replace(carSprite, () => mobileSprite) : source)
     .replace('Word Racer — stripped engine test', 'Vocabulary Racer')
     .replace('<div class="logo">WORD RACER</div>', '')
     .replace('</head>', '<style>'+layout+'</style></head>')
