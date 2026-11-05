@@ -21,7 +21,7 @@ for (const file of ['index.html', 'launcher.js']) {
   await copyFile(new URL(`preview/${file}`, root), new URL(file, out));
 }
 await writeFile(new URL('_headers', out), `/*
-  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; frame-src 'self'; frame-ancestors 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'
+  Content-Security-Policy: default-src 'none'; script-src 'self' 'unsafe-inline' https://447ea3a9.bt-vocabulary-platform-staging.pages.dev/platform/; style-src 'unsafe-inline'; frame-src 'self'; frame-ancestors 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Cache-Control: no-store
